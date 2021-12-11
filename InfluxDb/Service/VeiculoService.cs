@@ -1,5 +1,6 @@
 ﻿using InfluxDb.Model;
 using InfluxDb.Repositories;
+using InfluxDb.ViewModel;
 using InfluxDB.Client.Writes;
 
 namespace InfluxDb.Service
@@ -22,16 +23,7 @@ namespace InfluxDb.Service
                 for (int j = 0; j < quantidadeVeiculoColecao; j++)
                 {
                     var veiculo = Rand.ObterCarroAleatorio();
-                    Points.Add(PointData.Measurement("veiculos" + i)
-                   //Tag são indexadas 
-                   .Tag("Modelo", veiculo.Modelo)
-                   .Tag("Chassi", veiculo.Chassi)
-                   .Tag("Preco", veiculo.Preco.ToString())
-                   .Tag("Marca", veiculo.Marca)
-                   //Field não é indexado, qualquer consulta q execute sobre ele sera em todos os registros de acordo com o range selecionado 
-                   .Field("AnoCarro", veiculo.AnoCarro)
-                   .Field("value", veiculo.AnoCarro)
-                   .Timestamp(DateTime.UtcNow, InfluxDB.Client.Api.Domain.WritePrecision.Ns));
+                    Points.Add(BindToPointData(veiculo.Modelo, veiculo.Marca, veiculo.Chassi, veiculo.Preco, veiculo.AnoCarro,DateTime.UtcNow));
                 }
             }
 
@@ -40,15 +32,35 @@ namespace InfluxDb.Service
 
         public async Task<List<Veiculo>> ObterVeiculos()
         {
-            var query = "|> range(start: 0)" +
-                        "|> filter(fn: (r) => r[\"_measurement\"] == \"veiculos0\")";
+            var query = "|> range(start: 0)";
+            //+ "|> filter(fn: (r) => r[\"_measurement\"] == \"veiculos\")";
 
             return await _influxDBRepository.QueryList<Veiculo>(query);
         }
 
-        public async Task AtualizarVeiculo()
+        public async Task AtualizarVeiculo(VeiculoAtualizarViewModel veiculo)
         {
+            //Case sensitive as tags no influx
+            var query = $"Chassi=\"{veiculo.Chassi}\"";           
 
+            await _influxDBRepository.Delete(veiculo.Time.AddMilliseconds(-1), veiculo.Time, query);
+
+            //DataMedição deve ser enviado como um UTC, com Z no final ou convertido, mas isso adiciona horas 
+            var point = BindToPointData(veiculo.Modelo, veiculo.Marca, veiculo.Chassi, veiculo.Preco, veiculo.AnoCarro, veiculo.DataMedicao);
+            await _influxDBRepository.Update(point);
+        }
+
+        private PointData BindToPointData(string modelo, string marca, string chassi, decimal preco, string anoCarro, DateTime time )
+        {  
+            return PointData.Measurement("veiculos")
+            //Tag são indexadas 
+            .Tag("Modelo", modelo)
+            .Tag("Marca", marca)
+            .Tag("Chassi", chassi)
+            //Field não é indexado, qualquer consulta q execute sobre ele sera em todos os registros de acordo com o range selecionado 
+            .Field("Preco", preco.ToString())
+            .Field("AnoCarro", anoCarro)
+            .Timestamp(time, InfluxDB.Client.Api.Domain.WritePrecision.Ns);
         }
     }
 }

@@ -1,11 +1,12 @@
 ﻿using InfluxDb.Service;
+using InfluxDb.ViewModel;
 using Microsoft.AspNetCore.Mvc;
 
 namespace InfluxDb.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class VeiculoController : ControllerBase
+    public class VeiculoController : Controller
     {
         private readonly IVeiculoService _veiculoService;
 
@@ -29,11 +30,11 @@ namespace InfluxDb.Controllers
         }
 
         [HttpGet("obter-veiculos")]
-        public async Task<IActionResult>ObterVeiculos()
+        public async Task<IActionResult> ObterVeiculos()
         {
             try
             {
-               var veiculos = await _veiculoService.ObterVeiculos();
+                var veiculos = await _veiculoService.ObterVeiculos();
                 return Ok(veiculos);
             }
             catch (Exception ex)
@@ -43,12 +44,12 @@ namespace InfluxDb.Controllers
         }
 
         [HttpPut("atualizar-veiculos")]
-        public async Task<IActionResult>AtualizarVeiculos()
+        public async Task<IActionResult> AtualizarVeiculos([FromBody] VeiculoAtualizarViewModel viewModel)
         {
             try
             {
-                var veiculos = await _veiculoService.ObterVeiculos();
-                return Ok(veiculos);
+                await _veiculoService.AtualizarVeiculo(viewModel);
+                return Ok();
             }
             catch (Exception ex)
             {

@@ -10,24 +10,31 @@ namespace InfluxDb.Repositories
     {
         private readonly InfluxDbOptions _appSettings;
         private readonly InfluxDBClient _client;
+        private readonly InfluxDBClientOptions _options;
 
         public InfluxDBRepository(IOptions<InfluxDbOptions> appSettings)
         {
             _appSettings = appSettings.Value;
-            var options = new InfluxDBClientOptions.Builder()
+            _options = new InfluxDBClientOptions.Builder()
                 .Url(_appSettings.Host)
                 .AuthenticateToken(_appSettings.Token.ToCharArray())
                 .Org(_appSettings.Organization)
                 .Bucket(_appSettings.Bucket)
                 .Build();
 
-            _client = InfluxDBClientFactory.Create(options);
+            _client = InfluxDBClientFactory.Create(_options);
         }
 
         public async Task Write(List<PointData> points)
         {
             var writeApiAsync = _client.GetWriteApiAsync();
             await writeApiAsync.WritePointsAsync(points);
+        }
+
+        private async Task Write(PointData point)
+        {
+            var writeApiAsync = _client.GetWriteApiAsync();
+            await writeApiAsync.WritePointAsync(point);
         }
 
         public async Task<List<T>> QueryList<T>(string query, string bucket = "")
@@ -54,6 +61,12 @@ namespace InfluxDb.Repositories
         public async Task Delete(DateTime start, DateTime stop, string predicate)
         {
             await _client.GetDeleteApi().Delete(start, stop, predicate, _appSettings.Bucket, _appSettings.Organization);
+        }
+
+
+        public async Task Update(PointData point)
+        {
+            await Write(point);
         }
     }
 }
